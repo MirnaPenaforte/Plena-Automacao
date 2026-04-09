@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  automation-app:
+    build: .
+    image: plena-pe-app
+    container_name: plena-pe
+    volumes:
+      # Montar pastas locais para persistência e monitoramento
+      - ./imports:/app/imports
+      - ./output:/app/output
+      - ./logs:/app/logs
+      # Caso queira modificar as configurações sem reconstruir o container
+      - .env:/app/.env
+    env_file:
+      - .env
+    environment:
+      # Sobrescrever fuso horário (America/Sao_Paulo)
+      - TZ=America/Sao_Paulo
+    # "unless-stopped" é ideal se houver agendamento interno (loop while True no main.py)
+    # Caso seja rodado via cron no host, remover a linha abaixo ou trocar para "no"
+    restart: unless-stopped
+    # Para capturar os logs do Python em tempo real
+    stdin_open: true
+    tty: true

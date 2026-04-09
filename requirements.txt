@@ -1,0 +1,6 @@
+pandas
+openpyxl
+requests
+python-dotenv
+imap-tools
+schedule
