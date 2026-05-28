@@ -66,8 +66,8 @@ def agrupar_vendas(df_vendas):
         df_final = pivot_vendas[[COLUNA_EAN, 'Mês Atual']].copy()
         df_final.columns = ['EAN', 'Mês Atual']
         
-        # Garante que as quantidades sejam inteiras
-        df_final['Mês Atual'] = df_final['Mês Atual'].astype('int64')
+        # Garante que as quantidades sejam inteiras e não negativas
+        df_final['Mês Atual'] = df_final['Mês Atual'].astype('int64').clip(lower=0)
 
         # Deixa a coluna Mês -1 em branco
         df_final['Mês -1'] = ''
