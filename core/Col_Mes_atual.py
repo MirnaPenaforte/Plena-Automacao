@@ -68,6 +68,9 @@ def agrupar_vendas(df_vendas):
         # Mantém apenas o necessário
         df_final = pivot_vendas[[COLUNA_EAN, 'Mês Atual', 'Mês -1']].copy()
         
+        # Renomeia a coluna para o merge no main.py
+        df_final = df_final.rename(columns={COLUNA_EAN: 'EAN'})
+        
         # Garante que as quantidades sejam inteiras e não negativas
         df_final['Mês Atual'] = df_final['Mês Atual'].astype('int64').clip(lower=0)
         df_final['Mês -1'] = df_final['Mês -1'].astype('int64').clip(lower=0)
