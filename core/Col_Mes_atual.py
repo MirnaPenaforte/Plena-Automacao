@@ -43,6 +43,7 @@ def agrupar_vendas(df_vendas):
                 diff = (ano_atual * 12 + mes_atual) - (ano_val * 12 + mes_val)
                 
                 if diff == 0: return 'Mês Atual'
+                if diff == 1: return 'Mês -1'
                 return 'Outros'
             except:
                 return 'Outros'
@@ -61,16 +62,15 @@ def agrupar_vendas(df_vendas):
         # 4. Garantia das Colunas de Saída
         if 'Mês Atual' not in pivot_vendas.columns:
             pivot_vendas['Mês Atual'] = 0
+        if 'Mês -1' not in pivot_vendas.columns:
+            pivot_vendas['Mês -1'] = 0
                 
-        # Mantém apenas o necessário e renomeia
-        df_final = pivot_vendas[[COLUNA_EAN, 'Mês Atual']].copy()
-        df_final.columns = ['EAN', 'Mês Atual']
+        # Mantém apenas o necessário
+        df_final = pivot_vendas[[COLUNA_EAN, 'Mês Atual', 'Mês -1']].copy()
         
         # Garante que as quantidades sejam inteiras e não negativas
         df_final['Mês Atual'] = df_final['Mês Atual'].astype('int64').clip(lower=0)
-
-        # Deixa a coluna Mês -1 em branco
-        df_final['Mês -1'] = ''
+        df_final['Mês -1'] = df_final['Mês -1'].astype('int64').clip(lower=0)
 
         return df_final
 

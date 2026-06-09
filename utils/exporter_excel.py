@@ -47,7 +47,7 @@ def gerar_relatorio_vendas(df_consolidado):
             os.makedirs(diretorio_saida)
 
         # Colunas que sempre sobem vazias para manter o formato do cliente
-        colunas_vazias = ['Descrição', 'Transito', 'Pendencia', 'Mês -1', 'Mês -2', 'Mês -3']
+        colunas_vazias = ['Descrição', 'Transito', 'Pendencia', 'Mês -2', 'Mês -3']
         for col in colunas_vazias:
             df_consolidado[col] = ""
 

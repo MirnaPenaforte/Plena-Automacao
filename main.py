@@ -84,11 +84,8 @@ def processar_arquivo(path_excel):
 
             df_final = preencher_data_entrada(df_final)
 
-            colunas_numericas = ['Estoque', 'Mês Atual']
+            colunas_numericas = ['Estoque', 'Mês Atual', 'Mês -1']
             df_final[colunas_numericas] = df_final[colunas_numericas].fillna(0).astype(int)
-            
-            # Garante que Mês -1 continue em branco
-            df_final['Mês -1'] = ''
             
             # Faturamento Atual e M-1: Float com 2 casas
             df_final['Faturamento Atual'] = df_final['Faturamento Atual'].fillna(0.0).astype(float).round(2)
