@@ -109,8 +109,8 @@ def calcular_faturamento_atual(df_vendas):
         df_resultado = pd.merge(fat_atual, fat_anterior, on='EAN', how='outer').fillna(0.0)
 
         # Garante tipos float nas colunas de valor
-        df_resultado['Faturamento Atual'] = df_resultado['Faturamento Atual'].round(2)
-        df_resultado['Faturamento M-1']   = df_resultado['Faturamento M-1'].round(2)
+        df_resultado['Faturamento Atual'] = df_resultado['Faturamento Atual'].round(2).clip(lower=0)
+        df_resultado['Faturamento M-1']   = df_resultado['Faturamento M-1'].round(2).clip(lower=0)
 
         print(f"✅ Faturamento calculado para {len(df_resultado)} EANs distintos.")
         return df_resultado
