@@ -21,8 +21,8 @@ class Settings:
     VENDAS_URL = f"{BASE_URL}/api/import/vendas"
 
     # --- IDs e Campos Fixos ---
-    DISTRIBUIDOR_ID = os.getenv("DISTRIBUIDOR_ID", "87") # Valor padrão "87" se não houver no .env
-    REPRESENTANTE_ID = os.getenv("REPRESENTANTE_ID", "14")
+    DISTRIBUIDOR_ID = os.getenv("DISTRIBUIDOR_ID")
+    REPRESENTANTE_ID = os.getenv("REPRESENTANTE_ID")
     FIELD_ARQUIVO = "arquivo"
     FIELD_DISTRIBUIDOR = "distribuidorId"
     FIELD_REPRESENTANTE = "representanteId"
