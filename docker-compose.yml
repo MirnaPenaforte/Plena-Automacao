@@ -1,25 +1,31 @@
-version: '3.8'
-
+# O nome do serviço é genérico ('app'). A diferenciação entre instâncias
+# é feita pelo COMPOSE_PROJECT_NAME, IMAGE_NAME e CONTAINER_NAME no .env.
+# Ex: COMPOSE_PROJECT_NAME=plena-automacao → projeto isolado "plena-automacao"
 services:
-  automation-app:
-    build: .
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
     image: ${IMAGE_NAME}
     container_name: ${CONTAINER_NAME}
-    volumes:
-      # Montar pastas locais para persistência e monitoramento
-      - ./imports:/app/imports
-      - ./output:/app/output
-      - ./logs:/app/logs
-      # Caso queira modificar as configurações sem reconstruir o container
-      - .env:/app/.env
+    restart: unless-stopped
     env_file:
       - .env
     environment:
-      # Sobrescrever fuso horário (America/Sao_Paulo)
       - TZ=America/Sao_Paulo
-    # "unless-stopped" é ideal se houver agendamento interno (loop while True no main.py)
-    # Caso seja rodado via cron no host, remover a linha abaixo ou trocar para "no"
-    restart: unless-stopped
-    # Para capturar os logs do Python em tempo real
-    stdin_open: true
-    tty: true
+    volumes:
+      - ./output:/app/output
+      - ./imports:/app/imports
+      - ./logs:/app/logs
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "pgrep", "-f", "main.py"]
+      interval: 1m
+      timeout: 10s
+      retries: 3
