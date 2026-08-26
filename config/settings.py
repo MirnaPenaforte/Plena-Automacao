@@ -36,6 +36,7 @@ class Settings:
     GMAIL_USER = os.getenv("GMAIL_USER")
     GMAIL_PASS = os.getenv("GMAIL_PASS")
     IMAP_SERVER = os.getenv("IMAP_SERVER", "imap.gmail.com")
+    TERMO_BUSCA_IMAP = os.getenv("TERMO_BUSCA_IMAP")
 
     # --- Configurações de Armazenamento ---
     # Limite de arquivos para manter nas pastas (conforme sua solicitação)

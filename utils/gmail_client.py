@@ -13,8 +13,7 @@ def buscar_arquivos_email():
         print("❌ Erro: GMAIL_USER ou GMAIL_PASS não configurados no .env")
         return arquivos_baixados
 
-    # Termo de busca simplificado: 'Plena'
-    TERMO_BUSCA_IMAP = "Plena"
+    # Termo de busca simplificado: lido do .env via Settings
 
     try:
         print(f"🔄 Conectando ao Gmail: {Settings.GMAIL_USER}")
@@ -22,7 +21,7 @@ def buscar_arquivos_email():
         with MailBox(Settings.IMAP_SERVER).login(Settings.GMAIL_USER, Settings.GMAIL_PASS) as mailbox:
             
             # Busca por e-mails NÃO LIDOS (UNSEEN) com "Plena" no assunto
-            for msg in mailbox.fetch(AND(seen=False, subject=TERMO_BUSCA_IMAP)):
+            for msg in mailbox.fetch(AND(seen=False, subject=Settings.TERMO_BUSCA_IMAP)):
                 
                 print(f"📩 Novo e-mail detectado: {msg.subject} (Data: {msg.date_str})")
                 
