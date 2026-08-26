@@ -23,14 +23,36 @@ def main():
             # Busca de e-mails
             buscar_arquivos_email()
             
-            # Busca arquivos diretamente na pasta 'imports'
-            novos_arquivos = glob.glob(os.path.join('imports', '*.xlsx'))
-            
+            # Vendas e estoque chegam em arquivos independentes. Entradas não
+            # participa do processamento desta automação.
+            todos_arquivos = glob.glob(os.path.join('imports', '*.xlsx'))
+            grupos = {}
+            for caminho in todos_arquivos:
+                nome = os.path.basename(caminho)
+                nome_lower = nome.lower()
+
+                if '_mapa_estoque_' in nome_lower:
+                    tipo = 'estoque'
+                    marcador = '_mapa_estoque_'
+                elif '_relatorio_vendas_' in nome_lower:
+                    tipo = 'vendas'
+                    marcador = '_relatorio_vendas_'
+                else:
+                    continue
+
+                chave = nome_lower.replace(marcador, '_data_', 1)
+                grupos.setdefault(chave, {})[tipo] = caminho
+
+            novos_arquivos = [
+                grupo for grupo in grupos.values()
+                if 'vendas' in grupo and 'estoque' in grupo
+            ]
+
             if novos_arquivos:
-                print(f"🔔 {len(novos_arquivos)} arquivo(s) detectado(s). Iniciando processamento...")
-                
-                for path_excel in novos_arquivos:
-                    processar_arquivo(path_excel)
+                print(f"🔔 {len(novos_arquivos) * 2} arquivo(s) detectado(s). Iniciando processamento...")
+
+                for grupo in novos_arquivos:
+                    processar_arquivos(grupo['vendas'], grupo['estoque'])
                 
                 # Se achou e processou, recomeça o ciclo imediatamente para pegar outros possíveis e-mails novos
                 print("🔄 Arquivos processados. Retornando imediatamente para nova busca...")
@@ -49,18 +71,21 @@ def main():
 
 
 
-def processar_arquivo(path_excel):
+def processar_arquivos(path_vendas, path_estoque):
     """
     Versão refatorada do fluxo original para processar um arquivo específico.
     """
     diretorio_imports = 'imports'
-    print(f"\n--- ⚙️ Processando: {os.path.basename(path_excel)} ---")
+    print(
+        f"\n--- ⚙️ Processando: {os.path.basename(path_vendas)} + "
+        f"{os.path.basename(path_estoque)} ---"
+    )
 
-    df_vendas_bruto = ler_planilha_excel(path_excel, 'Vendas_Dev')
-    df_estoque_bruto = ler_planilha_excel(path_excel, 'Estoque')
+    df_vendas_bruto = ler_planilha_excel(path_vendas)
+    df_estoque_bruto = ler_planilha_excel(path_estoque)
 
     if df_vendas_bruto is not None and df_estoque_bruto is not None:
-        print("✅ Dados carregados com sucesso das abas 'Vendas_Dev' e 'Estoque'.")
+        print("✅ Dados carregados com sucesso dos arquivos de vendas e estoque.")
 
         # --- BACKUP E LIMPEZA ---
         # Arquiva apenas o arquivo que estamos processando no momento ou a pasta toda
@@ -82,7 +107,7 @@ def processar_arquivo(path_excel):
             df_final = pd.merge(df_final, vendas_final, on='EAN', how='outer')
             df_final = pd.merge(df_final, faturamento_final, on='EAN', how='outer')
 
-            df_final = preencher_data_entrada(df_final)
+            df_final = preencher_data_entrada(df_final, df_estoque_bruto.copy())
 
             colunas_numericas = ['Estoque', 'Mês Atual', 'Mês -1']
             df_final[colunas_numericas] = df_final[colunas_numericas].fillna(0).astype(int)
@@ -116,13 +141,15 @@ def processar_arquivo(path_excel):
             print(f"❌ Erro crítico no processamento final: {e}")
         finally:
             # Garante que o arquivo seja removido após o processamento (já está no backup)
-            if os.path.exists(path_excel):
-                os.remove(path_excel)
-                print(f"🗑️ Arquivo original removido: {os.path.basename(path_excel)}")
+            for path in (path_vendas, path_estoque):
+                if os.path.exists(path):
+                    os.remove(path)
+                    print(f"🗑️ Arquivo original removido: {os.path.basename(path)}")
     else:
-        print(f"❌ Erro fatal: Falha ao carregar os dados de {path_excel}")
-        if os.path.exists(path_excel):
-            os.remove(path_excel)
+        print(
+            f"❌ Erro fatal: Falha ao carregar os arquivos "
+            f"{path_vendas} e/ou {path_estoque}"
+        )
 
 if __name__ == "__main__":
     main()

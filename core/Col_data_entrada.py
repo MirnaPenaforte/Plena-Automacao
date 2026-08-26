@@ -1,28 +1,16 @@
 import pandas as pd
-import os
-import glob
-from core.read_excel import ler_planilha_excel
 
-def preencher_data_entrada(df_final):
+def preencher_data_entrada(df_final, df_estoque=None):
     """
-    Busca a data da coluna 'ULTI.ENTRADA' na aba 'Estoque' do arquivo importado
-    e vincula ao DataFrame final através do EAN.
+    Busca a data da coluna 'ULT.ENTRADA' no arquivo de estoque e vincula ao
+    DataFrame final através do EAN.
     """
     try:
-        # 1. Localizar o arquivo Excel na pasta imports
-        diretorio_imports = 'imports'
-        arquivos_excel = glob.glob(os.path.join(diretorio_imports, '*.[xX][lL][sS][xX]'))
-        
-        if not arquivos_excel:
+        if df_estoque is None:
             print("⚠️ Aviso: Arquivo de estoque não encontrado para extrair data de entrada.")
             df_final['Data Entrada'] = ""
             return df_final
 
-        path_excel = arquivos_excel[0]
-        
-        # 2. Ler apenas as colunas necessárias da aba Estoque
-        df_estoque = ler_planilha_excel(path_excel, 'Estoque')
-        
         if df_estoque is None or df_estoque.empty:
             df_final['Data Entrada'] = ""
             return df_final
@@ -32,7 +20,7 @@ def preencher_data_entrada(df_final):
         COLUNA_DATA = 'ULT.ENTRADA'
 
         if COLUNA_DATA not in df_estoque.columns:
-            print(f"⚠️ Coluna '{COLUNA_DATA}' não encontrada na aba Estoque.")
+            print(f"⚠️ Coluna '{COLUNA_DATA}' não encontrada no arquivo de estoque.")
             df_final['Data Entrada'] = ""
             return df_final
 
