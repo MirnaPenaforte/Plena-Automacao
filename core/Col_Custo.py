@@ -8,17 +8,31 @@ def extrair_preco_custo(df_estoque):
     # Configuração das colunas de origem
     COLUNA_EAN = 'EAN'
     COLUNA_PRECO = 'PREÇO_COMPRA'
+    COLUNA_DATA_ENTRADA = 'ULT.ENTRADA'
 
     try:
         if df_estoque is None or df_estoque.empty:
             return pd.DataFrame(columns=['EAN', 'Preço Custo'])
 
         # 1. Seleção e Cópia (garante que as colunas existem)
-        if COLUNA_EAN not in df_estoque.columns or COLUNA_PRECO not in df_estoque.columns:
-            print(f"⚠️ Erro: Coluna {COLUNA_EAN} ou {COLUNA_PRECO} não encontrada na aba Estoque.")
+        if any(coluna not in df_estoque.columns for coluna in (
+            COLUNA_EAN, COLUNA_PRECO, COLUNA_DATA_ENTRADA
+        )):
+            print(
+                f"⚠️ Erro: Coluna {COLUNA_EAN}, {COLUNA_PRECO} ou "
+                f"{COLUNA_DATA_ENTRADA} não encontrada na aba Estoque."
+            )
             return pd.DataFrame(columns=['EAN', 'Preço Custo'])
 
-        df_custo = df_estoque[[COLUNA_EAN, COLUNA_PRECO]].copy()
+        # Considera o custo somente para EANs com data de entrada preenchida.
+        data_entrada = df_estoque[COLUNA_DATA_ENTRADA]
+        tem_data_entrada = (
+            data_entrada.notna()
+            & data_entrada.astype(str).str.strip().ne('')
+            & data_entrada.astype(str).str.strip().str.lower().ne('nan')
+            & data_entrada.astype(str).str.strip().str.lower().ne('none')
+        )
+        df_custo = df_estoque.loc[tem_data_entrada, [COLUNA_EAN, COLUNA_PRECO]].copy()
         df_custo.columns = ['EAN', 'Preço Custo']
         
         # 2. Limpeza do EAN
