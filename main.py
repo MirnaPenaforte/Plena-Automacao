@@ -1,7 +1,10 @@
 import os
 import time
 import glob
+import threading
 import pandas as pd
+import uvicorn
+from api import app
 from core.read_excel import ler_planilha_excel
 from core.Col_estoque import processar_estoque_agrupado
 from core.Col_data_validade import processar_validade_estoque
@@ -13,6 +16,22 @@ from utils.exporter_excel import gerar_relatorio_vendas
 from utils.controler_import import arquivar_arquivos_importacao
 from utils.gmail_client import buscar_arquivos_email
 from utils.api_client import enviar_ultimo_relatorio
+
+
+def iniciar_api():
+    """Inicia a API em segundo plano junto com o monitor de e-mails."""
+    host = os.getenv('IMPORTS_API_HOST', '0.0.0.0').strip() or '0.0.0.0'
+    # Mesmo padrão de configuração da NOVA. A separação entre automações é
+    # feita pelo endpoint, não pelo nome da variável de porta.
+    valor_porta = os.getenv('IMPORTS_API_PORT', '8000').strip() or '8000'
+    try:
+        porta = int(valor_porta)
+    except ValueError as erro:
+        raise RuntimeError(f"IMPORTS_API_PORT inválida: '{valor_porta}'.") from erro
+    if not 1 <= porta <= 65535:
+        raise RuntimeError(f"IMPORTS_API_PORT inválida: '{porta}'.")
+    print(f"🌐 API de imports iniciando em {host}:{porta}")
+    uvicorn.run(app, host=host, port=porta, log_level='info')
 
 def main():
     print("🚀 Automação ligada em modo MONITORAMENTO.")
@@ -152,4 +171,5 @@ def processar_arquivos(path_vendas, path_estoque):
         )
 
 if __name__ == "__main__":
+    threading.Thread(target=iniciar_api, daemon=True, name='imports-api').start()
     main()

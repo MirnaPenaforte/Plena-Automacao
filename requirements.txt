@@ -4,3 +4,5 @@ requests
 python-dotenv
 imap-tools
 schedule
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0

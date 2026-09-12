@@ -14,6 +14,7 @@ Esta é uma aplicação de automação contínua (monitoramento) desenvolvida em
   - Cálculo de Faturamento.
 - **Geração de Relatórios**: Exporta o DataFrame final mesclado e formatado por EAN.
 - **Envio Automático via API**: Envia o relatório processado para um endpoint remoto.
+- **API REST de Imports**: Disponibiliza os anexos atuais do e-mail no mesmo contrato JSON da NOVA.
 - **Arquivamento Seguro**: Move os arquivos processados para uma subpasta de arquivamento (backup).
 - **Conteinerização**: O projeto está totalmente preparado para ser rodado de forma isolada e contínua em **Docker** e **Docker Compose**.
 
@@ -53,6 +54,23 @@ Plena-PE_Multifoco_Automation/
 └── requirements.txt            # Dependências Python
 
 ```
+
+### API REST de imports
+
+Ao iniciar, a automação também abre uma API local. Ela procura os anexos mais recentes
+recebidos por e-mail (inclusive em `imports/backups`) e expõe:
+
+- `GET /plena/imports/atuais`: JSON com `METAS`, `VENDAS`, `VENDEDORES` e `ESTOQUE`;
+
+Na PLENA, `VENDAS` vem de `*_relatorio_vendas_*.xlsx` e `ESTOQUE` de
+`*_mapa_estoque_*.xlsx`. Como esses dois relatórios não trazem metas nem vendedores,
+`METAS` e `VENDEDORES` são retornados como listas vazias.
+
+Configure `IMPORTS_API_TOKEN` no `.env` e envie o cabeçalho
+`Authorization: Bearer SEU_TOKEN`. A PLENA usa o mesmo padrão de configuração da NOVA:
+`IMPORTS_API_HOST`, `IMPORTS_API_PORT` e `IMPORTS_API_TOKEN`. A porta padrão é `8000`;
+a diferenciação entre NOVA, PLENA RN e PLENA PE é feita pelo endpoint fixo da PLENA,
+`/plena`.
 
 ## ⚙️ Pré-requisitos e Configuração Local
 
