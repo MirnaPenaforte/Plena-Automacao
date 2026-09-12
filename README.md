@@ -61,6 +61,7 @@ Ao iniciar, a automação também abre uma API local. Ela procura os anexos mais
 recebidos por e-mail (inclusive em `imports/backups`) e expõe:
 
 - `GET /plena/imports/atuais`: JSON com `METAS`, `VENDAS`, `VENDEDORES` e `ESTOQUE`;
+- `POST /plena/auth/token`: gera um token Bearer usando uma chave administrativa;
 
 Na PLENA, `VENDAS` vem de `*_relatorio_vendas_*.xlsx` e `ESTOQUE` de
 `*_mapa_estoque_*.xlsx`. Como esses dois relatórios não trazem metas nem vendedores,
@@ -68,9 +69,19 @@ Na PLENA, `VENDAS` vem de `*_relatorio_vendas_*.xlsx` e `ESTOQUE` de
 
 Configure `IMPORTS_API_TOKEN` no `.env` e envie o cabeçalho
 `Authorization: Bearer SEU_TOKEN`. A PLENA usa o mesmo padrão de configuração da NOVA:
-`IMPORTS_API_HOST`, `IMPORTS_API_PORT` e `IMPORTS_API_TOKEN`. A porta padrão é `8000`;
+`IMPORTS_API_HOST`, `IMPORTS_API_PORT`, `IMPORTS_API_TOKEN` e
+`IMPORTS_API_PROVISION_KEY`. A porta padrão é `8000`;
 a diferenciação entre NOVA, PLENA RN e PLENA PE é feita pelo endpoint fixo da PLENA,
 `/plena`.
+
+Para gerar o token no próprio servidor:
+
+```bash
+curl -X POST http://localhost:8000/plena/auth/token \
+  -H "X-Provision-Key: sua-chave-administrativa"
+```
+
+O token retornado em `access_token` é salvo em `imports/.api_token`.
 
 ## ⚙️ Pré-requisitos e Configuração Local
 

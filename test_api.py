@@ -14,6 +14,7 @@ class ApiJsonTests(unittest.TestCase):
         rotas = {rota.path for rota in api.app.routes}
         self.assertIn("/plena/imports/atuais", rotas)
         self.assertNotIn("/plena/imports/atuais.zip", rotas)
+        self.assertIn("/plena/auth/token", rotas)
 
     def test_anexos_sao_separados_no_contrato_da_nova(self):
         with tempfile.TemporaryDirectory() as pasta:

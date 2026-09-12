@@ -15,13 +15,14 @@ from pathlib import Path
 
 import pandas as pd
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Security
+from fastapi import FastAPI, Header, HTTPException, Security
 from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 
 BASE_DIR = Path(__file__).resolve().parent
 IMPORTS_DIR = BASE_DIR / "imports"
+TOKEN_FILE = IMPORTS_DIR / ".api_token"
 load_dotenv(BASE_DIR / ".env")
 
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -43,11 +44,19 @@ PADROES_ANEXOS = {
 }
 
 
+def _token_configurado() -> str:
+    """Lê o token persistido pelo servidor ou o token definido no .env."""
+    try:
+        return TOKEN_FILE.read_text(encoding="utf-8").strip() or os.getenv("IMPORTS_API_TOKEN", "").strip()
+    except OSError:
+        return os.getenv("IMPORTS_API_TOKEN", "").strip()
+
+
 def validar_token_bearer(
     credenciais: HTTPAuthorizationCredentials | None = Security(bearer_scheme),
 ) -> None:
     """Valida o token estático configurado em IMPORTS_API_TOKEN."""
-    token_esperado = os.getenv("IMPORTS_API_TOKEN", "").strip()
+    token_esperado = _token_configurado()
     if not token_esperado:
         raise HTTPException(status_code=503, detail="Token de acesso da API não configurado.")
     if (
@@ -60,6 +69,23 @@ def validar_token_bearer(
             detail="Token Bearer ausente ou inválido.",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+
+@app.post("/plena/auth/token", summary="Gerar token Bearer da PLENA")
+def gerar_token_bearer(
+    chave_provisionamento: str | None = Header(default=None, alias="X-Provision-Key"),
+) -> dict[str, str]:
+    """Gera e persiste um token mediante chave administrativa."""
+    chave_esperada = os.getenv("IMPORTS_API_PROVISION_KEY", "").strip()
+    if not chave_esperada:
+        raise HTTPException(status_code=503, detail="IMPORTS_API_PROVISION_KEY não configurada.")
+    if chave_provisionamento is None or not secrets.compare_digest(chave_provisionamento, chave_esperada):
+        raise HTTPException(status_code=401, detail="Chave de provisionamento inválida.")
+
+    IMPORTS_DIR.mkdir(parents=True, exist_ok=True)
+    token = secrets.token_urlsafe(48)
+    TOKEN_FILE.write_text(token, encoding="utf-8")
+    return {"token_type": "Bearer", "access_token": token}
 
 
 def _ultimo_anexo(padrao: str) -> Path | None:
