@@ -1,141 +1,293 @@
-# Plena-PE Multifoco Automation
+# PLENA Automação
 
-Esta é uma aplicação de automação contínua (monitoramento) desenvolvida em **Python** para o processamento automatizado de planilhas de vendas e estoque. O sistema monitora a caixa de entrada de e-mails em busca de relatórios estruturados (formato `.xlsx`), realiza o processamento detalhado de métricas de negócio, consolida os dados, gera um novo relatório e realiza o envio automático desses resultados para uma API.
+Serviço de automação para recebimento, processamento e distribuição de relatórios de vendas e estoque da operação PLENA.
 
-## 🚀 Funcionalidades
+A aplicação monitora uma conta de e-mail via IMAP, baixa anexos Excel, combina os relatórios de vendas e estoque correspondentes, calcula indicadores, gera um relatório consolidado e o envia para a API de negócio configurada. Em paralelo, disponibiliza uma API local para consulta dos relatórios recebidos mais recentemente.
 
-- **Monitoramento Contínuo**: A aplicação roda em loop, buscando novos arquivos na pasta `imports` ou diretamente via e-mail a cada 1 minuto.
-- **Integração com E-mail (IMAP)**: Lê mensagens e extrai automaticamente os anexos necessários.
-- **Processamento de Dados**: Utiliza a biblioteca `pandas` para manipular diferentes abas do relatório (como `Vendas_Dev` e `Estoque`), realizando operações como:
-  - Consolidação e agrupamento de Estoque.
-  - Extração e análise de Custo (com regras para preços zerados).
-  - Cálculo de Prazos de Validade.
-  - Agrupamento de Vendas do Mês Atual.
-  - Cálculo de Faturamento.
-- **Geração de Relatórios**: Exporta o DataFrame final mesclado e formatado por EAN.
-- **Envio Automático via API**: Envia o relatório processado para um endpoint remoto.
-- **API REST de Imports**: Disponibiliza os anexos atuais do e-mail no mesmo contrato JSON da NOVA.
-- **Arquivamento Seguro**: Move os arquivos processados para uma subpasta de arquivamento (backup).
-- **Conteinerização**: O projeto está totalmente preparado para ser rodado de forma isolada e contínua em **Docker** e **Docker Compose**.
+## Fluxo de processamento
 
-## 🛠️ Tecnologias e Bibliotecas
+1. Consulta periódica à caixa de entrada configurada.
+2. Download de anexos `.xlsx` de e-mails não lidos para `imports/`.
+3. Associação de um relatório de vendas com um relatório de estoque pela identificação no nome dos arquivos.
+4. Leitura e consolidação dos dados pelo campo `EAN`.
+5. Cálculo de estoque, custo, validade, vendas do mês atual, faturamento e data de entrada.
+6. Geração do relatório em `output/`.
+7. Cópia dos arquivos de entrada para `imports/backups/` e remoção da raiz de `imports/`.
+8. Envio do relatório consolidado mais recente para a API externa.
 
-- **[Python 3.11+](https://www.python.org/)**
-- **[Pandas](https://pandas.pydata.org/)** & **[OpenPyXL](https://openpyxl.readthedocs.io/)** - Para manipulação dos dados tabulares e arquivos Excel.
-- **[Requests](https://requests.readthedocs.io/)** - Para comunicação com APIs externas.
-- **[imap-tools](https://pypi.org/project/imap-tools/)** - Para conexão e extração de e-mails usando o protocolo IMAP.
-- **[python-dotenv](https://pypi.org/project/python-dotenv/)** - Para o gerenciamento seguro de variáveis de ambiente.
-- **Docker & Docker Compose** - Para deploy integrado e escalável.
+Quando não há um par completo de arquivos, o serviço aguarda 60 segundos antes de consultar novamente.
 
-## 🗂️ Estrutura do Projeto
+## Funcionalidades
 
-```text
-Plena-PE_Multifoco_Automation/
-├── core/                       # Lógicas de negócio e processamento de colunas
-│   ├── Col_Custo.py            # Extração de preço de custo
-│   ├── Col_data_entrada.py     # Preenchimento das datas de entrada
-│   ├── Col_data_validade.py    # Tratativas para validades de produtos
-│   ├── Col_estoque.py          # Agrupamento e processamento do estoque
-│   ├── Col_faturamento_total.py# Cálculos de faturamento M e M-1
-│   ├── Col_Mes_atual.py        # Processamento e agrupamento de vendas ativas
-│   └── read_excel.py           # Leitura e verificação das abas Vendas_Dev e Estoque
-├── utils/                      # Ferramentas utilitárias e integrações externas
-│   ├── api_client.py           # Funções de integração e envio do relatório para API
-│   ├── controler_import.py     # Sistema de backup/limpeza de arquivos importados
-│   ├── exporter_excel.py       # Geração da saída unificada e customizada
-│   └── gmail_client.py         # Módulo de acesso ao e-mail
-├── imports/                    # Pasta que armazena os arquivos recém-baixados (Input)
-├── output/                     # Local onde os relatórios gerados são salvos provisoriamente
-├── logs/                       # Pasta designada a back-ups diários e possíveis logs
-├── .env                        # [Não versionado] Configurações de API e credenciais
-├── docker-compose.yml          # Manifesto do Docker Compose (volume links, environments)
-├── Dockerfile                  # Instruções para criação da imagem do projeto
-├── main.py                     # Script principal e orquestrador da automação
-└── requirements.txt            # Dependências Python
+- Coleta automática de anexos Excel via IMAP.
+- Processamento e consolidação por `EAN`.
+- Geração de relatório Excel com layout padronizado.
+- Envio autenticado para a API externa.
+- Backup organizado por mês e dia.
+- Limpeza automática de backups com dois ou mais meses de diferença.
+- API local protegida por Bearer Token.
+- Execução local ou em Docker Compose.
 
+## Tecnologias e requisitos
+
+- Python 3.12
+- Pandas, OpenPyXL, Requests e imap-tools
+- FastAPI e Uvicorn
+- Docker Engine e Docker Compose para implantação conteinerizada
+- Acesso IMAP à conta de e-mail
+- Acesso à API externa configurada em `BASE_URL`
+
+## Configuração
+
+Crie um arquivo `.env` na raiz do projeto. Ele contém credenciais e não deve ser versionado.
+
+```dotenv
+COMPOSE_PROJECT_NAME=plena-automacao
+IMAGE_NAME=plena-automacao:latest
+CONTAINER_NAME=plena-automacao
+
+API_EMAIL=usuario@example.com
+API_PASS=senha-da-api
+BASE_URL=https://api.example.com
+DISTRIBUIDOR_ID=seu-distribuidor-id
+REPRESENTANTE_ID=seu-representante-id
+
+GMAIL_USER=conta@example.com
+GMAIL_PASS=senha-ou-app-password
+IMAP_SERVER=imap.gmail.com
+TERMO_BUSCA_IMAP=Plena
+
+IMPORTS_API_HOST=0.0.0.0
+IMPORTS_API_PORT=8000
+IMPORTS_API_TOKEN=defina-um-token-seguro
+IMPORTS_API_PROVISION_KEY=defina-uma-chave-administrativa-segura
 ```
 
-### API REST de imports
+| Variável | Obrigatória | Descrição |
+| --- | --- | --- |
+| `API_EMAIL` | Sim | E-mail usado na autenticação da API externa. |
+| `API_PASS` | Sim | Senha usada na autenticação da API externa. |
+| `BASE_URL` | Sim | URL base da API externa. |
+| `DISTRIBUIDOR_ID` | Sim | Identificador enviado no upload. |
+| `REPRESENTANTE_ID` | Sim | Identificador enviado no upload. |
+| `GMAIL_USER` | Sim | Conta usada no acesso IMAP. |
+| `GMAIL_PASS` | Sim | Senha ou senha de aplicativo da conta IMAP. |
+| `IMAP_SERVER` | Não | Servidor IMAP; padrão: `imap.gmail.com`. |
+| `TERMO_BUSCA_IMAP` | Sim | Texto procurado no assunto de e-mails não lidos. |
+| `IMPORTS_API_HOST` | Não | Interface da API local; padrão: `0.0.0.0`. |
+| `IMPORTS_API_PORT` | Não | Porta da API local; padrão: `8000`. |
+| `IMPORTS_API_TOKEN` | Recomendável | Token Bearer para consulta da API local. |
+| `IMPORTS_API_PROVISION_KEY` | Recomendável | Chave administrativa para gerar o token. |
 
-Ao iniciar, a automação também abre uma API local. Ela procura os anexos mais recentes
-recebidos por e-mail (inclusive em `imports/backups`) e expõe:
+Para contas Gmail, habilite IMAP e prefira uma senha de aplicativo quando a autenticação em dois fatores estiver ativa.
 
-- `GET /plena/imports/atuais`: JSON com `METAS`, `VENDAS`, `VENDEDORES` e `ESTOQUE`;
-- `POST /plena/auth/token`: gera um token Bearer usando uma chave administrativa;
+## Arquivos de entrada
 
-Na PLENA, `VENDAS` vem de `*_relatorio_vendas_*.xlsx` e `ESTOQUE` de
-`*_mapa_estoque_*.xlsx`. Como esses dois relatórios não trazem metas nem vendedores,
-`METAS` e `VENDEDORES` são retornados como listas vazias.
+O serviço reconhece arquivos `.xlsx` com os marcadores:
 
-Configure `IMPORTS_API_TOKEN` no `.env` e envie o cabeçalho
-`Authorization: Bearer SEU_TOKEN`. A PLENA usa o mesmo padrão de configuração da NOVA:
-`IMPORTS_API_HOST`, `IMPORTS_API_PORT`, `IMPORTS_API_TOKEN` e
-`IMPORTS_API_PROVISION_KEY`. A porta padrão é `8000`;
-a diferenciação entre NOVA, PLENA RN e PLENA PE é feita pelo endpoint fixo da PLENA,
-`/plena`.
+- `_relatorio_vendas_`: relatório de vendas.
+- `_mapa_estoque_`: relatório de estoque.
 
-Para gerar o token no próprio servidor:
+Os dois arquivos devem compartilhar a mesma data ou referência no nome. Exemplo:
+
+```text
+PLENA_relatorio_vendas_12-09-2026.xlsx
+PLENA_mapa_estoque_12-09-2026.xlsx
+```
+
+O processamento somente começa quando os dois tipos são encontrados. As planilhas precisam conter as colunas esperadas pelos módulos de processamento, incluindo o identificador de produto usado como `EAN`.
+
+## Execução local
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+mkdir -p imports output logs
+python main.py
+```
+
+No Windows, ative o ambiente com:
+
+```powershell
+.venv\Scripts\Activate.ps1
+```
+
+A aplicação cria os diretórios de entrada e saída quando necessário. Para encerrar o monitor, pressione `Ctrl+C`.
+
+## Implantação com Docker Compose
+
+1. Instale e valide o Docker:
+
+   ```bash
+   docker --version
+   docker compose version
+   ```
+
+2. Crie o `.env` e preencha as variáveis da seção de configuração.
+3. Crie os diretórios persistidos:
+
+   ```bash
+   mkdir -p imports output logs
+   ```
+
+4. Construa a imagem e inicie o serviço:
+
+   ```bash
+   docker compose up -d --build
+   ```
+
+5. Acompanhe a execução:
+
+   ```bash
+   docker compose logs -f app
+   ```
+
+Comandos operacionais:
+
+```bash
+docker compose ps
+docker compose restart app
+docker compose stop
+docker compose down
+```
+
+O serviço usa `restart: unless-stopped` e monta estes volumes:
+
+| Host | Contêiner | Finalidade |
+| --- | --- | --- |
+| `./imports` | `/app/imports` | Anexos recebidos e backups. |
+| `./output` | `/app/output` | Relatórios consolidados. |
+| `./logs` | `/app/logs` | Dados operacionais. |
+
+A API local é publicada na porta de `IMPORTS_API_PORT`, com padrão `8000`.
+
+## API local
+
+A API é iniciada em segundo plano junto com o monitor de e-mails.
+
+### Gerar token
 
 ```bash
 curl -X POST http://localhost:8000/plena/auth/token \
   -H "X-Provision-Key: sua-chave-administrativa"
 ```
 
-O token retornado em `access_token` é salvo em `imports/.api_token`.
+O valor retornado em `access_token` é salvo em `imports/.api_token`.
 
-## ⚙️ Pré-requisitos e Configuração Local
+### Consultar imports atuais
 
-1. Assegure estar com o **Python instalado** ou com **Docker / Docker Compose** na máquina.
-2. Clone este repositório.
-3. Crie e preencha um arquivo `.env` na raiz do projeto contendo as credenciais de e-mail e os endpoints da API (solicite o `.env.example` se disponível).
+```bash
+curl http://localhost:8000/plena/imports/atuais \
+  -H "Authorization: Bearer seu-token"
+```
 
-### Rodando o Projeto Usando o Python Host (Local)
+A resposta segue o contrato:
 
-1. Crie um ambiente virtual e o ative (Recomendado):
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # Para Linux/Mac
-   # venv\Scripts\activate   # Para Windows
-   ```
+```json
+{
+  "METAS": [],
+  "VENDAS": [
+    {
+      "EAN": "7890000000000",
+      "Descrição": "Produto exemplo",
+      "Data Entrada": "2026-09-12",
+      "Data Validade": "2027-09-12",
+      "Mês -3": 0,
+      "Mês -2": 0,
+      "Mês -1": 3,
+      "Mês Atual": 5,
+      "Estoque": 8,
+      "Faturamento Atual": 125.5,
+      "Faturamento M-1": 75.3,
+      "Preço Custo": 3.5,
+      "Transito": null,
+      "Pendencia": null
+    }
+  ],
+  "VENDEDORES": [],
+  "ESTOQUE": [
+    {
+      "EAN": "7890000000000",
+      "Estoque": 0
+    }
+  ]
+}
+```
 
-2. Instale as dependências:
-   ```bash
-   pip install -r requirements.txt
-   ```
+Na PLENA, `VENDAS` contém as linhas completas do relatório consolidado mais recente encontrado em `output/`, incluindo todas as colunas calculadas. Cada registro possui o campo `EAN`, que identifica o produto e relaciona todos os demais valores da linha. A categoria `ESTOQUE` também é preenchida a partir do mesmo relatório e contém somente `EAN` e `Estoque`, permitindo consultar o estoque de cada produto por seu identificador. As categorias `METAS` e `VENDEDORES` permanecem como listas vazias. Se nenhum relatório for encontrado em `output/`, o endpoint retorna HTTP 404.
 
-3. Certifique-se de que as pastas **`imports`**, **`output`** e **`logs`** existem na raiz (o Docker as cria automaticamente, mas localmente pode ser preciso criá-las ou rodar o script que as gerará, se aplicável).
+## Relatório gerado
 
-4. Inicie o sistema:
-   ```bash
-   python main.py
-   ```
+O arquivo é criado como `Plena_DD-MM-AA.xlsx` e contém:
 
-### Rodando o Projeto com Docker (Recomendado)
+```text
+EAN, Descrição, Data Entrada, Data Validade
+Mês -3, Mês -2, Mês -1, Mês Atual, Estoque
+Faturamento Atual, Faturamento M-1, Preço Custo
+Transito, Pendencia
+```
 
-O projeto mapeia perfeitamente os volumes das pastas para os caminhos de host, para que os arquivos fiquem refletidos na sua máquina, além de respeitar o timezone `America/Sao_Paulo`.
+Os relatórios são organizados em `output/<mês>/<dia>/`. Os backups ficam em `imports/backups/<mês>/<dia>/`. O sistema mantém o mês atual e o mês anterior, removendo referências mais antigas.
 
-1. Confirme se as pastas locais (ex. `./imports`, `./output`, `./logs`) e o arquivo `.env` estam em root.
-2. Faça a build e inicie os containers via compose:
-   ```bash
-   docker-compose up -d --build
-   ```
-3. Acompanhe os logs de execução:
-   ```bash
-   docker-compose logs -f automation-app
-   ```
-*Nota*: O aplicativo continuará validando as atualizações caso o parâmetro `restart: unless-stopped` estiver configurado.
+## API externa
 
-## 📊 Regra de Negócio: Detalhes do Processamento Principal
-Quando o `main.py` encontra um documento modelo `.xlsx` na pasta de `imports/`, o processo funciona nas seguintes etapas:
-1. Extração dos *DataFrames* para `Estoque` e para `Vendas_Dev`.
-2. Move todos os arquivos originais lidos para um arquivamento (*backup*) visando impedir duplicações nas leituras.
-3. Tratamento unificado pelo ID universal do produto (**`EAN`**). 
-4. Correção numérica fina: substitui faltas por **zeros**, estipula casas decimais corretas (Faturamentos com 2 casas e os Custos chegam a 3 casas como contingência onde for estritamente 0), e processa de forma oca os blocos dos *Meses Anteriores* que deixaram de ser usados (`Mês -1`);
-5. Um arquivo novo consolidado e limpo é despachado para a pasta `output/` via o submódulo *Exporter Excel*.
-6. O robô em tempo de execução submete esse mesmo relatório gerado no final para a API conectada.
+O serviço utiliza:
 
-## 📄 Informações e Considerações Adicionais
+- Autenticação: `POST {BASE_URL}/api/conta/login`
+- Upload: `POST {BASE_URL}/api/import/vendas`
 
-- Para parar a automação com Python puro, pressione teclado `[Ctrl + C]`.
-- Se ocorrer qualquer bloqueio no upload para API, analise se não estão enfrentando limitação de requisições por segundo (Rate Limit blocks). 
-- O arquivo `.dockerignore` previne que caches e ambientes virtuais subam como lixo dentro da imagem Docker. 
+O login envia `API_EMAIL` e `API_PASS`. O upload envia o arquivo no campo `arquivo`, além de `distribuidorId` e `representanteId`.
+
+## Testes
+
+Execute os testes da API local com:
+
+```bash
+python -m unittest test_api.py
+```
+
+## Estrutura do projeto
+
+```text
+.
+├── api.py                       API local de consulta dos imports
+├── main.py                      Monitoramento e processamento
+├── config/
+│   ├── settings.py              Configurações do ambiente
+│   └── token.py                 Autenticação na API externa
+├── core/                        Regras de transformação e cálculo
+├── utils/
+│   ├── api_client.py            Upload do relatório
+│   ├── controler_import.py      Backup e retenção
+│   ├── exporter_excel.py        Geração do relatório final
+│   └── gmail_client.py          Coleta de anexos via IMAP
+├── imports/                     Entradas e backups
+├── output/                      Relatórios gerados
+├── logs/                        Dados operacionais
+├── Dockerfile                   Imagem da aplicação
+├── docker-compose.yml           Definição do serviço
+└── requirements.txt             Dependências Python
+```
+
+## Diagnóstico
+
+Se nenhum arquivo for processado, confirme:
+
+1. As credenciais e o termo de busca do IMAP.
+2. Se a mensagem está não lida.
+3. Se os nomes contêm os marcadores esperados.
+4. Se vendas e estoque formam o mesmo grupo.
+5. Se os diretórios têm permissão de leitura e escrita.
+
+Se o upload falhar, valide `BASE_URL`, as credenciais da API, os identificadores e a conectividade do contêiner.
+
+A sessão usada pela API externa atualmente desabilita a verificação de certificado TLS. Em produção, corrija a cadeia de certificados e remova essa configuração antes da operação definitiva.
+
+## Segurança
+
+- Nunca versione `.env`, tokens ou senhas.
+- Restrinja o acesso à porta da API local em redes compartilhadas.
+- Use senhas de aplicativo para contas de e-mail quando possível.
+- Monitore os logs e o espaço disponível em `imports/` e `output/`.
