@@ -23,6 +23,7 @@ output/*.xlsx
 output/*.xls
 logs/
 *.log
+Exemplos/
 
 # Arquivos temporários
 *.tmp
