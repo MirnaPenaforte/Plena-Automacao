@@ -175,6 +175,12 @@ def _data_iso(valor) -> str:
         return ""
 
 
+def _data_dd_mm_aaaa(valor) -> str:
+    """Formata uma data como DD-MM_AAAA para o JSON da API."""
+    data_iso = _data_iso(valor)
+    return date.fromisoformat(data_iso).strftime("%d-%m_%Y") if data_iso else ""
+
+
 def _numero_decimal(valor) -> float | int | None:
     texto = _texto_coluna(valor)
     if not texto:
@@ -203,7 +209,7 @@ def _registro_venda(linha: dict) -> dict:
     return {
         "CFOP": cfop,
         "Saida_Codigo": _texto_coluna(linha.get("COD_PRODUTO")),
-        "Saida_Data_Venda": _data_iso(linha.get("DATA_FATURAMENTO")),
+        "Saida_Data_Venda": _data_dd_mm_aaaa(linha.get("DATA_FATURAMENTO")),
         "Saida_Numero_Nota": "NF-" + _texto_coluna(linha.get("NF")),
         "Saida_Filial_Cnpj": "",
         "Saida_Quantidade": quantidade,
@@ -227,7 +233,7 @@ def _registro_estoque(linha: dict) -> dict:
         "Codigo_Barras": _texto_coluna(linha.get("EAN")),
         "Est_Disponivel": _numero_decimal(linha.get("ESTOQUE")),
         "Lote": "",
-        "Data_Entrada": _data_iso(linha.get("ULT.ENTRADA")),
+        "Data_Entrada": _data_dd_mm_aaaa(linha.get("ULT.ENTRADA")),
         "Data_Vencimento": "",
         "Preco_Custo": _numero_decimal(linha.get("PREÇO_COMPRA")),
     }
