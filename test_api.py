@@ -124,7 +124,7 @@ class ApiJsonTests(unittest.TestCase):
         })
         self.assertEqual(venda["CFOP"], api.CFOP_VENDA)
         self.assertEqual(venda["Saida_Codigo"], "123")
-        self.assertEqual(venda["Saida_Data_Venda"], "2026-09-01")
+        self.assertEqual(venda["Saida_Data_Venda"], "01-09_2026")
         self.assertEqual(venda["Saida_Numero_Nota"], "NF-456")
         self.assertEqual(venda["Saida_Quantidade"], 2)
         self.assertEqual(venda["Saida_Valor_Unitario"], 19.9)
@@ -150,7 +150,7 @@ class ApiJsonTests(unittest.TestCase):
         })
         self.assertEqual(estoque["Codigo_Barras"], "7891234567890")
         self.assertEqual(estoque["Est_Disponivel"], 15)
-        self.assertEqual(estoque["Data_Entrada"], "2026-08-10")
+        self.assertEqual(estoque["Data_Entrada"], "10-08_2026")
         self.assertEqual(estoque["Preco_Custo"], 12.5)
 
         vendedores = api._registros_vendedores([
