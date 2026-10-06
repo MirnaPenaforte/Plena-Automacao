@@ -192,8 +192,8 @@ A resposta segue o contrato:
     {
       "EAN": "7890000000000",
       "Descrição": "Produto exemplo",
-      "Data Entrada": "2026-09-12",
-      "Data Validade": "2027-09-12",
+      "Data Entrada": "12/09/2026",
+      "Data Validade": "12/09/2027",
       "Mês -3": 0,
       "Mês -2": 0,
       "Mês -1": 3,
@@ -203,20 +203,43 @@ A resposta segue o contrato:
       "Faturamento M-1": 75.3,
       "Preço Custo": 3.5,
       "Transito": null,
-      "Pendencia": null
+      "Pendencia": null,
+      "CFOP": "",
+      "Saida_Codigo": "",
+      "Saida_Data_Venda": "",
+      "Saida_Numero_Nota": "",
+      "Saida_Filial_Cnpj": "",
+      "Saida_Quantidade": "",
+      "Saida_Valor_Unitario": "",
+      "Produto_Ean": "",
+      "Vendedor_Codigo": "",
+      "Vendedor_Nome": "",
+      "Vendedor_Ativo": "",
+      "Cliente_Codigo": "",
+      "Cliente_Nome_Razao_Social": "",
+      "Cliente_Cep": "",
+      "UF": "",
+      "Cidade": ""
     }
   ],
   "VENDEDORES": [],
   "ESTOQUE": [
     {
       "EAN": "7890000000000",
-      "Estoque": 0
+      "Estoque": 8,
+      "Filial_Cnpj": "",
+      "Codigo_Barras": "",
+      "Est_Disponivel": "",
+      "Lote": "",
+      "Data_Entrada": "",
+      "Data_Vencimento": "",
+      "Preco_Custo": ""
     }
   ]
 }
 ```
 
-Na PLENA, `VENDAS` contém as linhas completas do relatório consolidado mais recente encontrado em `output/`, incluindo todas as colunas calculadas. Cada registro possui o campo `EAN`, que identifica o produto e relaciona todos os demais valores da linha. A categoria `ESTOQUE` também é preenchida a partir do mesmo relatório e contém somente `EAN` e `Estoque`, permitindo consultar o estoque de cada produto por seu identificador. As categorias `METAS` e `VENDEDORES` permanecem como listas vazias. Se nenhum relatório for encontrado em `output/`, o endpoint retorna HTTP 404.
+Na PLENA, `VENDAS` contém todas as colunas do relatório consolidado mais recente encontrado em `output/`. Cada registro possui o campo `EAN`, que identifica o produto. `Data Entrada` e `Data Validade` são publicadas em `DD/MM/AAAA`. A categoria `ESTOQUE` é preenchida a partir do mesmo relatório com `EAN` e `Estoque`. Os campos do contrato anterior permanecem no JSON com string vazia. As categorias `METAS` e `VENDEDORES` são listas vazias. Se nenhum relatório for encontrado em `output/`, o endpoint retorna HTTP 404.
 
 ## Relatório gerado
 
