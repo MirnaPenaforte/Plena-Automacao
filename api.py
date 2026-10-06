@@ -176,9 +176,9 @@ def _data_iso(valor) -> str:
 
 
 def _data_dd_mm_aaaa(valor) -> str:
-    """Formata uma data como DD-MM_AAAA para o JSON da API."""
+    """Formata uma data como DD/MM/AAAA para o JSON da API."""
     data_iso = _data_iso(valor)
-    return date.fromisoformat(data_iso).strftime("%d-%m_%Y") if data_iso else ""
+    return date.fromisoformat(data_iso).strftime("%d/%m/%Y") if data_iso else ""
 
 
 def _numero_decimal(valor) -> float | int | None:
