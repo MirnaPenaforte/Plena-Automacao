@@ -190,56 +190,49 @@ A resposta segue o contrato:
   "METAS": [],
   "VENDAS": [
     {
-      "EAN": "7890000000000",
-      "Descrição": "Produto exemplo",
-      "Data Entrada": "12/09/2026",
-      "Data Validade": "12/09/2027",
-      "Mês -3": 0,
-      "Mês -2": 0,
-      "Mês -1": 3,
-      "Mês Atual": 5,
-      "Estoque": 8,
-      "Faturamento Atual": 125.5,
-      "Faturamento M-1": 75.3,
-      "Preço Custo": 3.5,
-      "Transito": null,
-      "Pendencia": null,
-      "CFOP": "",
+      "CFOP": "5102",
       "Saida_Codigo": "",
-      "Saida_Data_Venda": "",
-      "Saida_Numero_Nota": "",
+      "Saida_Data_Venda": "01/09/2026",
+      "Saida_Numero_Nota": "NF-9876",
       "Saida_Filial_Cnpj": "",
-      "Saida_Quantidade": "",
-      "Saida_Valor_Unitario": "",
-      "Produto_Ean": "",
-      "Vendedor_Codigo": "",
-      "Vendedor_Nome": "",
-      "Vendedor_Ativo": "",
+      "Saida_Quantidade": 2,
+      "Saida_Valor_Unitario": 25.5,
+      "Produto_Ean": "7890000000000",
+      "Vendedor_Codigo": "42",
+      "Vendedor_Nome": "Maria Silva",
+      "Vendedor_Ativo": true,
       "Cliente_Codigo": "",
       "Cliente_Nome_Razao_Social": "",
       "Cliente_Cep": "",
-      "UF": "",
+      "UF": "PE",
       "Cidade": ""
     }
   ],
-  "VENDEDORES": [],
+  "VENDEDORES": [
+    {
+      "Vendedor_Codigo": "42",
+      "Vendedor_Nome": "Maria Silva",
+      "Vendedor_Ativo": true,
+      "CPF": "",
+      "Telefone": "",
+      "Grupo": "Equipe A"
+    }
+  ],
   "ESTOQUE": [
     {
-      "EAN": "7890000000000",
-      "Estoque": 8,
       "Filial_Cnpj": "",
-      "Codigo_Barras": "",
-      "Est_Disponivel": "",
+      "Codigo_Barras": "7890000000000",
+      "Est_Disponivel": 8,
       "Lote": "",
-      "Data_Entrada": "",
+      "Data_Entrada": "15/08/2026",
       "Data_Vencimento": "",
-      "Preco_Custo": ""
+      "Preco_Custo": 18.75
     }
   ]
 }
 ```
 
-Na PLENA, `VENDAS` contém todas as colunas do relatório consolidado mais recente encontrado em `output/`. Cada registro possui o campo `EAN`, que identifica o produto. `Data Entrada` e `Data Validade` são publicadas em `DD/MM/AAAA`. A categoria `ESTOQUE` é preenchida a partir do mesmo relatório com `EAN` e `Estoque`. Os campos do contrato anterior permanecem no JSON com string vazia. As categorias `METAS` e `VENDEDORES` são listas vazias. Se nenhum relatório for encontrado em `output/`, o endpoint retorna HTTP 404.
+Na PLENA, o endpoint lê diretamente o par de arquivos de vendas e estoque mais recente em `imports/`, incluindo os arquivos soltos e os arquivados em `imports/backups/`. A consulta não depende da execução da busca de e-mails. A seleção considera a data no nome e exige que ambos pertençam ao mesmo distribuidor; para a mesma referência, prefere os arquivos soltos em `imports/`. `VENDAS` contém as linhas do import de vendas mapeadas para o contrato acima. `VENDEDORES` é derivado desse mesmo import, sem duplicar código e nome. `ESTOQUE` contém um registro por EAN, escolhendo a linha com maior estoque. `Saida_Data_Venda` e `Data_Entrada` são publicadas em `DD/MM/AAAA`. `METAS` permanece vazio. Se nenhum par for encontrado, o endpoint retorna HTTP 404.
 
 ## Relatório gerado
 
