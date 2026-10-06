@@ -1,9 +1,7 @@
 """API REST do relatório consolidado gerado pela automação PLENA.
 
-O endpoint /plena/imports/atuais publica, a partir dos imports arquivados em
-imports/backups, o par de arquivos de vendas e estoque mais recente (pela data
-no nome dos arquivos). Cada registro mantém os nomes das colunas dos Excel de
-origem e é identificado pelo campo EAN.
+O endpoint /plena/imports/atuais publica o relatório mais recente em output/,
+incluindo todas as suas colunas no JSON.
 """
 
 import json
@@ -23,7 +21,6 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 BASE_DIR = Path(__file__).resolve().parent
 IMPORTS_DIR = BASE_DIR / "imports"
-BACKUP_DIR = IMPORTS_DIR / "backups"
 OUTPUT_DIR = BASE_DIR / "output"
 TOKEN_FILE = IMPORTS_DIR / ".api_token"
 load_dotenv(BASE_DIR / ".env")
@@ -40,9 +37,7 @@ app = FastAPI(
 # PE é feita pelo endpoint; a porta segue o mesmo padrão da NOVA.
 API_PREFIX = "/plena"
 
-MARCADOR_VENDAS = "_relatorio_vendas_"
-MARCADOR_ESTOQUE = "_mapa_estoque_"
-SUFIXO_BACKUP = re.compile(r"_\d{2}-\d{2}-\d{4}_\d{2}h\d{2}m\.xlsx$")
+PADRAO_RELATORIO = re.compile(r"Plena_(\d{2})-(\d{2})-(\d{2})\.xlsx$", re.IGNORECASE)
 
 
 def _token_configurado() -> str:
@@ -89,57 +84,21 @@ def gerar_token_bearer(
     return {"token_type": "Bearer", "access_token": token}
 
 
-def _data_referencia(nome_arquivo: str) -> tuple[int, int, int]:
-    """Extrai a data de referência embutida no nome do import (ano, mês, dia)."""
-    busca = re.search(r"(\d{2})-(\d{2})-(\d{4})", nome_arquivo)
-    if not busca:
-        return (0, 0, 0)
-    dia, mes, ano = (int(parte) for parte in busca.groups())
-    return (ano, mes, dia)
-
-
-def _ultimo_par_de_imports() -> tuple[Path, Path] | None:
-    """Encontra, nos backups, o par de imports (vendas + estoque) mais recente.
-
-    O agrupamento usa o nome do arquivo com o marcador substituído por
-    `_data_` e a data de referência embutida, no formato DD-MM-AAAA,
-    garantindo que vendas e estoque sejam o par correspondente do mesmo
-    distribuidor.
-    """
-    grupos: dict[tuple[str, tuple[int, int, int]], dict[str, Path]] = {}
-    for arquivo in BACKUP_DIR.rglob("*.xlsx"):
-        if not arquivo.is_file():
-            continue
-        nome = SUFIXO_BACKUP.sub("", arquivo.name.lower())
-        if MARCADOR_VENDAS in nome:
-            tipo, marcador = "vendas", MARCADOR_VENDAS
-        elif MARCADOR_ESTOQUE in nome:
-            tipo, marcador = "estoque", MARCADOR_ESTOQUE
-        else:
-            continue
-        chave = (nome.replace(marcador, "_data_", 1), _data_referencia(nome))
-        grupos.setdefault(chave, {})[tipo] = arquivo
-
-    pares = [(chave, grupo) for chave, grupo in grupos.items()
-             if "vendas" in grupo and "estoque" in grupo]
-    if not pares:
-        return None
-    chave, par = max(pares, key=lambda item: item[0][1])
-    return par["vendas"], par["estoque"]
-
-
-def _encontrar_relatorio_atual() -> tuple[Path, Path]:
-    par = _ultimo_par_de_imports()
-    if par is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Nenhum par de imports (vendas + estoque) foi encontrado em imports/backups.",
-        )
-    return par
-
-
-CFOP_VENDA = "5102"
-CFOP_DEVOLUCAO = "6202"
+def _encontrar_relatorio_atual() -> Path:
+    """Encontra o relatório de output com a data mais recente no nome."""
+    relatorios = []
+    for arquivo in OUTPUT_DIR.rglob("Plena_*.xlsx"):
+        busca = PADRAO_RELATORIO.fullmatch(arquivo.name)
+        if arquivo.is_file() and busca:
+            dia, mes, ano = (int(parte) for parte in busca.groups())
+            try:
+                referencia = date(2000 + ano, mes, dia)
+            except ValueError:
+                continue
+            relatorios.append((referencia, arquivo.stat().st_mtime, arquivo))
+    if not relatorios:
+        raise HTTPException(status_code=404, detail="Nenhum relatório foi encontrado em output/.")
+    return max(relatorios, key=lambda item: (item[0], item[1]))[2]
 
 
 def _valor_json(valor):
@@ -168,8 +127,10 @@ def _data_iso(valor) -> str:
     if not texto:
         return ""
     try:
-        if isinstance(valor, (pd.Timestamp, datetime, date)):
+        if isinstance(valor, (pd.Timestamp, datetime)):
             return valor.date().isoformat()
+        if isinstance(valor, date):
+            return valor.isoformat()
         return pd.to_datetime(texto, dayfirst=True).date().isoformat()
     except ValueError:
         return ""
@@ -181,102 +142,41 @@ def _data_dd_mm_aaaa(valor) -> str:
     return date.fromisoformat(data_iso).strftime("%d/%m/%Y") if data_iso else ""
 
 
-def _numero_decimal(valor) -> float | int | None:
-    texto = _texto_coluna(valor)
-    if not texto:
-        return None
+CAMPOS_VENDA_ANTIGOS = (
+    "CFOP", "Saida_Codigo", "Saida_Data_Venda", "Saida_Numero_Nota",
+    "Saida_Filial_Cnpj", "Saida_Quantidade", "Saida_Valor_Unitario",
+    "Produto_Ean", "Vendedor_Codigo", "Vendedor_Nome", "Vendedor_Ativo",
+    "Cliente_Codigo", "Cliente_Nome_Razao_Social", "Cliente_Cep", "UF", "Cidade",
+)
+CAMPOS_ESTOQUE_ANTIGOS = (
+    "Filial_Cnpj", "Codigo_Barras", "Est_Disponivel", "Lote",
+    "Data_Entrada", "Data_Vencimento", "Preco_Custo",
+)
+
+
+def _ler_relatorio(arquivo: Path) -> list[dict]:
+    """Lê todas as linhas e colunas do relatório consolidado de output/."""
     try:
-        numero = round(float(texto.replace(",", ".")), 2)
-    except ValueError:
-        return None
-    if numero.is_integer():
-        return int(numero)
-    return numero
-
-
-def _registro_venda(linha: dict) -> dict:
-    """Mapeia uma linha do import de vendas para o contrato Saida_*."""
-    quantidade = _numero_decimal(linha.get("QTD_VENDIDA"))
-    valor = _numero_decimal(linha.get("VALOR_LIQUIDO"))
-
-    unitario = None
-    if quantidade and valor is not None and quantidade != 0:
-        unitario = round(valor / quantidade, 2)
-
-    operacao = _texto_coluna(linha.get("OPERACAO")).upper()
-    cfop = CFOP_VENDA if operacao == "VENDA" else CFOP_DEVOLUCAO
-
-    return {
-        "CFOP": cfop,
-        "Saida_Codigo": _texto_coluna(linha.get("COD_PRODUTO")),
-        "Saida_Data_Venda": _data_dd_mm_aaaa(linha.get("DATA_FATURAMENTO")),
-        "Saida_Numero_Nota": "NF-" + _texto_coluna(linha.get("NF")),
-        "Saida_Filial_Cnpj": "",
-        "Saida_Quantidade": quantidade,
-        "Saida_Valor_Unitario": unitario,
-        "Produto_Ean": _texto_coluna(linha.get("COD_EAN")),
-        "Vendedor_Codigo": _texto_coluna(linha.get("COD_VENDEDOR")),
-        "Vendedor_Nome": _texto_coluna(linha.get("VENDEDOR")),
-        "Vendedor_Ativo": True,
-        "Cliente_Codigo": "",
-        "Cliente_Nome_Razao_Social": "",
-        "Cliente_Cep": "",
-        "UF": _texto_coluna(linha.get("EMPRESA")),
-        "Cidade": "",
-    }
-
-
-def _registro_estoque(linha: dict) -> dict:
-    """Mapeia uma linha do mapa de estoque para o contrato de estoque."""
-    return {
-        "Filial_Cnpj": "",
-        "Codigo_Barras": _texto_coluna(linha.get("EAN")),
-        "Est_Disponivel": _numero_decimal(linha.get("ESTOQUE")),
-        "Lote": "",
-        "Data_Entrada": _data_dd_mm_aaaa(linha.get("ULT.ENTRADA")),
-        "Data_Vencimento": "",
-        "Preco_Custo": _numero_decimal(linha.get("PREÇO_COMPRA")),
-    }
-
-
-def _registros_vendedores(linhas: list[dict]) -> list[dict]:
-    """Deriva do import de vendas a lista deduplicada de vendedores."""
-    vendedores = {}
-    for linha in linhas:
-        codigo = _texto_coluna(linha.get("COD_VENDEDOR"))
-        nome = _texto_coluna(linha.get("VENDEDOR"))
-        chave = (codigo, nome)
-        if chave in vendedores:
-            continue
-        vendedores[chave] = {
-            "Vendedor_Codigo": codigo,
-            "Vendedor_Nome": nome,
-            "Vendedor_Ativo": True,
-            "CPF": "",
-            "Telefone": "",
-            "Grupo": _texto_coluna(linha.get("SUPERVISAO")),
-        }
-    return list(vendedores.values())
-
-
-def _ler_excel(arquivo: Path) -> list[dict]:
-    """Lê todas as abas não vazias do import e retorna as linhas em dicionários."""
-    try:
-        abas = pd.read_excel(arquivo, sheet_name=None, dtype=object)
+        dataframe = pd.read_excel(arquivo, dtype=object)
     except Exception as erro:
         raise HTTPException(
             status_code=422,
-            detail=f"Não foi possível ler o anexo {arquivo.name}: {erro}",
+            detail=f"Não foi possível ler o relatório {arquivo.name}: {erro}",
         ) from erro
+    dataframe = dataframe.dropna(axis=0, how="all")
+    if dataframe.empty:
+        raise HTTPException(status_code=422, detail="O relatório de output não contém registros.")
+    if "EAN" not in dataframe.columns or "Estoque" not in dataframe.columns:
+        raise HTTPException(status_code=422, detail="O relatório de output precisa das colunas EAN e Estoque.")
 
     registros = []
-    for dataframe in abas.values():
-        dataframe = dataframe.dropna(axis=0, how="all").dropna(axis=1, how="all")
-        if dataframe.empty:
-            continue
-        dataframe.columns = [str(coluna).strip() or f"coluna_{indice + 1}"
-                             for indice, coluna in enumerate(dataframe.columns)]
-        registros.extend(dataframe.to_dict(orient="records"))
+    for linha in dataframe.to_dict(orient="records"):
+        registro = {coluna: _valor_json(valor) for coluna, valor in linha.items()}
+        registro["EAN"] = _texto_coluna(linha["EAN"])
+        for coluna in ("Data Entrada", "Data Validade"):
+            if coluna in registro:
+                registro[coluna] = _data_dd_mm_aaaa(linha[coluna]) or None
+        registros.append(registro)
     return registros
 
 
@@ -295,42 +195,19 @@ def _gerar_json(tabelas: dict[str, list[dict]]) -> Iterator[str]:
     yield "}"
 
 
-def _linhas_estoque_por_ean(arquivo: Path) -> list[dict]:
-    """Agrupa o mapa de estoque por EAN e mantém a linha com estoque > 0.
-
-    Cada produto aparece uma vez por filial; uma delas vem com estoque zerado,
-    então escolhemos a linha cujo estoque seja positivo.
-    """
-    linhas = {}
-    for linha in _ler_excel(arquivo):
-        ean = _texto_coluna(linha.get("EAN"))
-        if not ean:
-            continue
-        estoque = _numero_decimal(linha.get("ESTOQUE")) or 0
-        atual = linhas.get(ean)
-        if atual is None:
-            linhas[ean] = linha
-        elif estoque > (_numero_decimal(atual.get("ESTOQUE")) or 0):
-            linhas[ean] = linha
-    return [linhas[ean] for ean in linhas]
-
-
 def _tabelas_atuais() -> dict[str, list[dict]]:
-    arquivo_vendas, arquivo_estoque = _encontrar_relatorio_atual()
-    linhas_vendas = _ler_excel(arquivo_vendas)
-    vendas = [_registro_venda(linha) for linha in linhas_vendas]
-    estoque = [_registro_estoque(linha) for linha in _linhas_estoque_por_ean(arquivo_estoque)]
-
-    if not vendas and not estoque:
-        raise HTTPException(
-            status_code=422,
-            detail="Os arquivos de import não contêm registros.",
-        )
+    registros = _ler_relatorio(_encontrar_relatorio_atual())
+    vendas = [{**linha, **dict.fromkeys(CAMPOS_VENDA_ANTIGOS, "")} for linha in registros]
+    estoque = [
+        {"EAN": linha["EAN"], "Estoque": linha["Estoque"],
+         **dict.fromkeys(CAMPOS_ESTOQUE_ANTIGOS, "")}
+        for linha in registros
+    ]
 
     return {
         "METAS": [],
         "VENDAS": vendas,
-        "VENDEDORES": _registros_vendedores(linhas_vendas),
+        "VENDEDORES": [],
         "ESTOQUE": estoque,
     }
 
